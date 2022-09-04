@@ -1,0 +1,6 @@
+numpy
+torch
+scipy
+tqdm
+soundfile
+resampy
