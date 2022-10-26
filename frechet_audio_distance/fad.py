@@ -24,6 +24,10 @@ def load_audio_task(fname):
     assert wav_data.dtype == np.int16, 'Bad sample type: %r' % wav_data.dtype
     wav_data = wav_data / 32768.0  # Convert to [-1.0, +1.0]
 
+    # Convert to mono
+    if len(wav_data.shape) > 1:
+        wav_data = np.mean(wav_data, axis=1)
+
     if sr != SAMPLE_RATE:
         wav_data = resampy.resample(wav_data, sr, SAMPLE_RATE)
 
