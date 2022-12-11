@@ -24,8 +24,12 @@ fad_score = frechet.score("/path/to/background/set", "/path/to/eval/set")
 
 We hereby provide the FAD scores comparison w.r.t. to the original implementation in `google-research/frechet-audio-distance`
 
-**Test 1: Distorted sine waves** (as provided [here](https://github.com/google-research/google-research/blob/master/frechet_audio_distance/gen_test_files.py#L86)) [[notes]()]
+**Test 1: Distorted sine waves** (as provided [here](https://github.com/google-research/google-research/blob/master/frechet_audio_distance/gen_test_files.py#L86)) [[notes](https://jexrj22lgy.larksuite.com/docx/Vat2dr8Aqonim6xmE6nuoBVZsUe)]
 
+|                              |   baseline vs test1   |     baseline vs test2    |
+|:----------------------------:|:---------------------:|:------------------------:|
+|        `google-research`     |          12.4375      |           4.7680         |
+|    `frechet_audio_distance`  |          12.7398      |           4.9815         |
 
 
 ### References
