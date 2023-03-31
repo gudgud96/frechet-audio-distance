@@ -66,7 +66,7 @@ class FrechetAudioDistance:
         embd_lst = []
         if isinstance(x, list):
             try:
-                for audio, sr in tqdm(x, disable=(not self.verbose)):
+                for audio in tqdm(x, disable=(not self.verbose)):
                     embd = self.model.forward(audio, sr)
                     if self.model.device == torch.device('cuda'):
                         embd = embd.cpu()
