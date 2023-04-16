@@ -31,7 +31,7 @@ def load_audio_task(fname):
     if sr != SAMPLE_RATE:
         wav_data = resampy.resample(wav_data, sr, SAMPLE_RATE)
 
-    return wav_data, SAMPLE_RATE
+    return wav_data
 
 
 class FrechetAudioDistance:
@@ -54,7 +54,7 @@ class FrechetAudioDistance:
             self.model.embeddings = nn.Sequential(*list(self.model.embeddings.children())[:-1])
         self.model.eval()
     
-    def get_embeddings(self, x, sr=16000):
+    def get_embeddings(self, x, sr=SAMPLE_RATE):
         """
         Get embeddings using VGGish model.
         Params:
@@ -66,7 +66,7 @@ class FrechetAudioDistance:
         embd_lst = []
         if isinstance(x, list):
             try:
-                for audio, sr in tqdm(x, disable=(not self.verbose)):
+                for audio in tqdm(x, disable=(not self.verbose)):
                     embd = self.model.forward(audio, sr)
                     if self.model.device == torch.device('cuda'):
                         embd = embd.cpu()
