@@ -14,6 +14,7 @@ from tqdm import tqdm
 import soundfile as sf
 import resampy
 from multiprocessing.dummy import Pool as ThreadPool
+from .models.pann import Cnn14_16k
 
 
 SAMPLE_RATE = 16000
@@ -35,23 +36,37 @@ def load_audio_task(fname):
 
 
 class FrechetAudioDistance:
-    def __init__(self, use_pca=False, use_activation=False, verbose=False, audio_load_worker=8):
-        self.__get_model(use_pca=use_pca, use_activation=use_activation)
+    def __init__(self, model_name="vggish", use_pca=False, use_activation=False, verbose=False, audio_load_worker=8):
+        self.model_name = model_name
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        self.__get_model(model_name=model_name, use_pca=use_pca, use_activation=use_activation)
         self.verbose = verbose
         self.audio_load_worker = audio_load_worker
     
-    def __get_model(self, use_pca=False, use_activation=False):
+    def __get_model(self, model_name="vggish", use_pca=False, use_activation=False):
         """
         Params:
         -- x   : Either 
             (i) a string which is the directory of a set of audio files, or
             (ii) a np.ndarray of shape (num_samples, sample_length)
         """
-        self.model = torch.hub.load('harritaylor/torchvggish', 'vggish')
-        if not use_pca:
-            self.model.postprocess = False
-        if not use_activation:
-            self.model.embeddings = nn.Sequential(*list(self.model.embeddings.children())[:-1])
+        if model_name == "vggish":
+            # S. Hershey et al., "CNN Architectures for Large-Scale Audio Classification", ICASSP 2017
+            self.model = torch.hub.load('harritaylor/torchvggish', 'vggish')
+            if not use_pca:
+                self.model.postprocess = False
+            if not use_activation:
+                self.model.embeddings = nn.Sequential(*list(self.model.embeddings.children())[:-1])
+        
+        elif model_name == "pann":
+            # Kong et al., "PANNs: Large-Scale Pretrained Audio Neural Networks for Audio Pattern Recognition", IEEE/ACM Transactions on Audio, Speech, and Language Processing 28 (2020)
+            model_path = os.path.join(torch.hub.get_dir(), "Cnn14_16k_mAP%3D0.438.pth")
+            if not(os.path.exists(model_path)):
+                torch.hub.download_url_to_file('https://zenodo.org/record/3987831/files/Cnn14_16k_mAP%3D0.438.pth', torch.hub.get_dir())
+            self.model = Cnn14_16k(sample_rate=16000, window_size=512, hop_size=160, mel_bins=64, fmin=50, fmax=8000, classes_num=527)
+            checkpoint = torch.load(model_path, map_location=self.device)
+            self.model.load_state_dict(checkpoint['model'])
+
         self.model.eval()
     
     def get_embeddings(self, x, sr=SAMPLE_RATE):
@@ -67,8 +82,13 @@ class FrechetAudioDistance:
         if isinstance(x, list):
             try:
                 for audio in tqdm(x, disable=(not self.verbose)):
-                    embd = self.model.forward(audio, sr)
-                    if self.model.device == torch.device('cuda'):
+                    if self.model_name == "vggish":
+                        embd = self.model.forward(audio, sr)
+                    elif self.model_name == "pann":
+                        with torch.no_grad():
+                            out = self.model(torch.tensor(audio).float().unsqueeze(0), None)
+                            embd = out['embedding'].data[0]
+                    if self.device == torch.device('cuda'):
                         embd = embd.cpu()
                     embd = embd.detach().numpy()
                     embd_lst.append(embd)
@@ -78,7 +98,7 @@ class FrechetAudioDistance:
             try:
                 for fname in tqdm(os.listdir(x), disable=(not self.verbose)):
                     embd = self.model.forward(os.path.join(x, fname))
-                    if self.model.device == torch.device('cuda'):
+                    if self.device == torch.device('cuda'):
                         embd = embd.cpu()
                     embd = embd.detach().numpy()
                     embd_lst.append(embd)
