@@ -17,14 +17,14 @@ from frechet_audio_distance import FrechetAudioDistance
 
 # to use `vggish`
 frechet = FrechetAudioDistance(
-    model_name="vggish"
+    model_name="vggish",
     use_pca=False, 
     use_activation=False,
     verbose=False
 )
 # to use `PANN`
 frechet = FrechetAudioDistance(
-    model_name="pann"
+    model_name="pann",
     use_pca=False, 
     use_activation=False,
     verbose=False
