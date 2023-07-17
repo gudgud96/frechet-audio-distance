@@ -4,3 +4,4 @@ scipy
 tqdm
 soundfile
 resampy
+torchlibrosa

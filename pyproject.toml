@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "frechet_audio_distance"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   { name="Hao Hao Tan", email="helloharry66@gmail.com" },
 ]
@@ -24,6 +24,7 @@ dependencies = [
   'tqdm',
   'soundfile',
   'resampy',
+  'torchlibrosa'
 ]
 
 [project.urls]
