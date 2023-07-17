@@ -20,18 +20,16 @@ frechet = FrechetAudioDistance(
     model_name="vggish",
     use_pca=False, 
     use_activation=False,
-    verbose=False,
-    dtype="float32"
+    verbose=False
 )
 # to use `PANN`
 frechet = FrechetAudioDistance(
     model_name="pann",
     use_pca=False, 
     use_activation=False,
-    verbose=False,
-    dtype="float32"
+    verbose=False
 )
-fad_score = frechet.score("/path/to/background/set", "/path/to/eval/set")
+fad_score = frechet.score("/path/to/background/set", "/path/to/eval/set", dtype="float32")
 
 ```
 
