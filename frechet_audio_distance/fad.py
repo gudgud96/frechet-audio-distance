@@ -20,11 +20,17 @@ from .models.pann import Cnn14_16k
 SAMPLE_RATE = 16000
 
 
-def load_audio_task(fname):
-    wav_data, sr = sf.read(fname, dtype='int16')
-    assert wav_data.dtype == np.int16, 'Bad sample type: %r' % wav_data.dtype
-    wav_data = wav_data / 32768.0  # Convert to [-1.0, +1.0]
+def load_audio_task(fname, dtype="float32"):
+    if dtype not in ['float64', 'float32', 'int32', 'int16']:
+        raise ValueError(f"dtype not supported: {dtype}")
 
+    wav_data, sr = sf.read(fname, dtype=dtype)
+    # For integer type PCM input, convert to [-1.0, +1.0]
+    if dtype == 'int16':
+        wav_data = wav_data / 32768.0
+    elif dtype == 'int32':
+        wav_data = wav_data / float(2**31)
+    
     # Convert to mono
     if len(wav_data.shape) > 1:
         wav_data = np.mean(wav_data, axis=1)
@@ -36,7 +42,14 @@ def load_audio_task(fname):
 
 
 class FrechetAudioDistance:
-    def __init__(self, model_name="vggish", use_pca=False, use_activation=False, verbose=False, audio_load_worker=8):
+    def __init__(
+        self, 
+        model_name="vggish", 
+        use_pca=False, 
+        use_activation=False, 
+        verbose=False, 
+        audio_load_worker=8
+    ):
         self.model_name = model_name
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.__get_model(model_name=model_name, use_pca=use_pca, use_activation=use_activation)
@@ -157,7 +170,7 @@ class FrechetAudioDistance:
         return (diff.dot(diff) + np.trace(sigma1)
                 + np.trace(sigma2) - 2 * tr_covmean)
     
-    def __load_audio_files(self, dir):
+    def __load_audio_files(self, dir, dtype="float32"):
         task_results = []
 
         pool = ThreadPool(self.audio_load_worker)
@@ -169,17 +182,27 @@ class FrechetAudioDistance:
         if self.verbose:
             print("[Frechet Audio Distance] Loading audio from {}...".format(dir))
         for fname in os.listdir(dir):
-            res = pool.apply_async(load_audio_task, args=(os.path.join(dir, fname),), callback=update)
+            res = pool.apply_async(
+                load_audio_task, 
+                args=(os.path.join(dir, fname), dtype,), 
+                callback=update
+            )
             task_results.append(res)
         pool.close()
         pool.join()     
 
         return [k.get() for k in task_results] 
 
-    def score(self, background_dir, eval_dir, store_embds=False):
+    def score(
+        self, 
+        background_dir, 
+        eval_dir, 
+        store_embds=False,
+        dtype="float32"
+    ):
         try:
-            audio_background = self.__load_audio_files(background_dir)
-            audio_eval = self.__load_audio_files(eval_dir)
+            audio_background = self.__load_audio_files(background_dir, dtype=dtype)
+            audio_eval = self.__load_audio_files(eval_dir, dtype=dtype)
 
             embds_background = self.get_embeddings(audio_background)
             embds_eval = self.get_embeddings(audio_eval)
