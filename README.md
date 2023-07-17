@@ -20,14 +20,16 @@ frechet = FrechetAudioDistance(
     model_name="vggish",
     use_pca=False, 
     use_activation=False,
-    verbose=False
+    verbose=False,
+    dtype="float32"
 )
 # to use `PANN`
 frechet = FrechetAudioDistance(
     model_name="pann",
     use_pca=False, 
     use_activation=False,
-    verbose=False
+    verbose=False,
+    dtype="float32"
 )
 fad_score = frechet.score("/path/to/background/set", "/path/to/eval/set")
 
@@ -49,6 +51,11 @@ FAD scores comparison w.r.t. to original implementation in `google-research/frec
 |                              |   baseline vs test1   |     baseline vs test2    |
 |:----------------------------:|:---------------------:|:------------------------:|
 |    `frechet_audio_distance`  |        0.000465       |          0.00008594      |
+
+### To contribute
+
+- Run `python3 -m build` to build your version locally. The built wheel should be in `dist/`.
+- `pip install` your local wheel version, and run `pytest test/` to validate your changes.
 
 ### References
 
