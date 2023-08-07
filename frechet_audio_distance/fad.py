@@ -193,31 +193,61 @@ class FrechetAudioDistance:
 
         return [k.get() for k in task_results] 
 
-    def score(
-        self, 
-        background_dir, 
-        eval_dir, 
-        store_embds=False,
-        dtype="float32"
-    ):
+
+    def score(self, 
+            background_dir, 
+            eval_dir, 
+            background_embds_path=None, 
+            eval_embds_path=None,
+            dtype="float32"
+            ):
+        """
+        Computes the Frechet Audio Distance (FAD) between two directories of audio files.
+
+        Parameters:
+        - background_dir (str): Path to the directory containing background audio files.
+        - eval_dir (str): Path to the directory containing evaluation audio files.
+        - background_embds_path (str, optional): Path to save/load background audio embeddings. If None, embeddings won't be saved.
+        - eval_embds_path (str, optional): Path to save/load evaluation audio embeddings. If None, embeddings won't be saved.
+        - dtype (str, optional): Data type for loading audio. Default is "float32".
+
+        Returns:
+        - float: The Frechet Audio Distance (FAD) score between the two directories of audio files.
+        """
         try:
-            audio_background = self.__load_audio_files(background_dir, dtype=dtype)
-            audio_eval = self.__load_audio_files(eval_dir, dtype=dtype)
+            # Load or compute background embeddings
+            if background_embds_path is not None and os.path.exists(background_embds_path):
+                if self.verbose:
+                    print(f"[Frechet Audio Distance] Loading embeddings from {background_embds_path}...")
+                embds_background = np.load(background_embds_path)
+            else:
+                audio_background = self.__load_audio_files(background_dir, dtype=dtype)
+                embds_background = self.get_embeddings(audio_background)
+                if background_embds_path:
+                    os.makedirs(os.path.dirname(background_embds_path), exist_ok=True)
+                    np.save(background_embds_path, embds_background)
 
-            embds_background = self.get_embeddings(audio_background)
-            embds_eval = self.get_embeddings(audio_eval)
+            # Load or compute eval embeddings
+            if eval_embds_path is not None and os.path.exists(eval_embds_path):
+                if self.verbose:
+                    print(f"[Frechet Audio Distance] Loading embeddings from {eval_embds_path}...")
+                embds_eval = np.load(eval_embds_path)
+            else:
+                audio_eval = self.__load_audio_files(eval_dir, dtype=dtype)
+                embds_eval = self.get_embeddings(audio_eval)
+                if eval_embds_path:
+                    os.makedirs(os.path.dirname(eval_embds_path), exist_ok=True)
+                    np.save(eval_embds_path, embds_eval)
 
-            if store_embds:
-                np.save("embds_background.npy", embds_background)
-                np.save("embds_eval.npy", embds_eval)
-
+            # Check if embeddings are empty
             if len(embds_background) == 0:
-                print("[Frechet Audio Distance] background set dir is empty, exitting...")
+                print("[Frechet Audio Distance] background set dir is empty, exiting...")
                 return -1
             if len(embds_eval) == 0:
-                print("[Frechet Audio Distance] eval set dir is empty, exitting...")
+                print("[Frechet Audio Distance] eval set dir is empty, exiting...")
                 return -1
-            
+
+            # Compute statistics and FAD score
             mu_background, sigma_background = self.calculate_embd_statistics(embds_background)
             mu_eval, sigma_eval = self.calculate_embd_statistics(embds_eval)
 
@@ -229,7 +259,6 @@ class FrechetAudioDistance:
             )
 
             return fad_score
-            
         except Exception as e:
-            print("[Frechet Audio Distance] exception thrown, {}".format(str(e)))
+            print(f"[Frechet Audio Distance] An error occurred: {e}")
             return -1
