@@ -14,7 +14,7 @@ from tqdm import tqdm
 import soundfile as sf
 import resampy
 from multiprocessing.dummy import Pool as ThreadPool
-from .models.pann import Cnn14_16k
+from .models.pann import Cnn14_8k, Cnn14_16k, Cnn14
 
 
 SAMPLE_RATE = 16000
@@ -44,17 +44,30 @@ def load_audio_task(fname, dtype="float32"):
 class FrechetAudioDistance:
     def __init__(
         self, 
+        ckpt_dir=None,
         model_name="vggish", 
+        sample_rate=16000,
         use_pca=False, 
         use_activation=False, 
         verbose=False, 
         audio_load_worker=8
-    ):
+    ):  
+        assert model_name in ["vggish", "pann"], "model_name must be either 'vggish' or 'pann'"
+        if model_name == "vggish":
+            assert sample_rate == 16000, "sample_rate must be 16000"
+        elif model_name == "pann":
+            assert sample_rate in [8000, 16000, 32000], "sample_rate must be 8000, 16000 or 32000"
         self.model_name = model_name
+        self.sample_rate = sample_rate
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        self.__get_model(model_name=model_name, use_pca=use_pca, use_activation=use_activation)
         self.verbose = verbose
         self.audio_load_worker = audio_load_worker
+        if ckpt_dir is not None:
+            os.makedirs(ckpt_dir, exist_ok=True)
+            torch.hub.set_dir(ckpt_dir)
+            self.ckpt_dir = ckpt_dir
+        self.__get_model(model_name=model_name, use_pca=use_pca, use_activation=use_activation)
+        
     
     def __get_model(self, model_name="vggish", use_pca=False, use_activation=False):
         """
@@ -65,7 +78,7 @@ class FrechetAudioDistance:
         """
         if model_name == "vggish":
             # S. Hershey et al., "CNN Architectures for Large-Scale Audio Classification", ICASSP 2017
-            self.model = torch.hub.load('harritaylor/torchvggish', 'vggish')
+            self.model = torch.hub.load(repo_or_dir='harritaylor/torchvggish', model='vggish')
             if not use_pca:
                 self.model.postprocess = False
             if not use_activation:
@@ -73,10 +86,54 @@ class FrechetAudioDistance:
         
         elif model_name == "pann":
             # Kong et al., "PANNs: Large-Scale Pretrained Audio Neural Networks for Audio Pattern Recognition", IEEE/ACM Transactions on Audio, Speech, and Language Processing 28 (2020)
-            model_path = os.path.join(torch.hub.get_dir(), "Cnn14_16k_mAP%3D0.438.pth")
-            if not(os.path.exists(model_path)):
-                torch.hub.download_url_to_file('https://zenodo.org/record/3987831/files/Cnn14_16k_mAP%3D0.438.pth', torch.hub.get_dir())
-            self.model = Cnn14_16k(sample_rate=16000, window_size=512, hop_size=160, mel_bins=64, fmin=50, fmax=8000, classes_num=527)
+            if self.sample_rate == 8000:
+                model_path = os.path.join(self.ckpt_dir, "Cnn14_8k_mAP%3D0.416.pth")
+                if not(os.path.exists(model_path)):
+                    torch.hub.download_url_to_file(
+                        url='https://zenodo.org/record/3987831/files/Cnn14_8k_mAP%3D0.416.pth', 
+                        dst=model_path
+                    )
+                self.model = Cnn14_8k(
+                    sample_rate=8000, 
+                    window_size=256, 
+                    hop_size=80, 
+                    mel_bins=64, 
+                    fmin=50, 
+                    fmax=4000, 
+                    classes_num=527
+                )
+            elif self.sample_rate == 16000:
+                model_path = os.path.join(self.ckpt_dir, "Cnn14_16k_mAP%3D0.438.pth")
+                if not(os.path.exists(model_path)):
+                    torch.hub.download_url_to_file(
+                        url='https://zenodo.org/record/3987831/files/Cnn14_16k_mAP%3D0.438.pth', 
+                        dst=model_path
+                    )
+                self.model = Cnn14_16k(
+                    sample_rate=16000, 
+                    window_size=512, 
+                    hop_size=160, 
+                    mel_bins=64, 
+                    fmin=50, 
+                    fmax=8000, 
+                    classes_num=527
+                )
+            elif self.sample_rate == 32000:
+                model_path = os.path.join(self.ckpt_dir, "Cnn14_mAP%3D0.431.pth")
+                if not(os.path.exists(model_path)):
+                    torch.hub.download_url_to_file(
+                        url='https://zenodo.org/record/3987831/files/Cnn14_mAP%3D0.431.pth', 
+                        dst=model_path
+                    )
+                self.model = Cnn14(
+                    sample_rate=32000, 
+                    window_size=1024, 
+                    hop_size=320, 
+                    mel_bins=64, 
+                    fmin=50, 
+                    fmax=16000, 
+                    classes_num=527
+                )
             checkpoint = torch.load(model_path, map_location=self.device)
             self.model.load_state_dict(checkpoint['model'])
 
