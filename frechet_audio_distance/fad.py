@@ -66,6 +66,9 @@ class FrechetAudioDistance:
             os.makedirs(ckpt_dir, exist_ok=True)
             torch.hub.set_dir(ckpt_dir)
             self.ckpt_dir = ckpt_dir
+        else:
+            # by default `ckpt_dir` is `torch.hub.get_dir()`
+            self.ckpt_dir = torch.hub.get_dir()
         self.__get_model(model_name=model_name, use_pca=use_pca, use_activation=use_activation)
         
     
@@ -89,6 +92,8 @@ class FrechetAudioDistance:
             if self.sample_rate == 8000:
                 model_path = os.path.join(self.ckpt_dir, "Cnn14_8k_mAP%3D0.416.pth")
                 if not(os.path.exists(model_path)):
+                    if self.verbose:
+                        print("[Frechet Audio Distance] Downloading {}...".format(model_path))
                     torch.hub.download_url_to_file(
                         url='https://zenodo.org/record/3987831/files/Cnn14_8k_mAP%3D0.416.pth', 
                         dst=model_path
@@ -105,6 +110,8 @@ class FrechetAudioDistance:
             elif self.sample_rate == 16000:
                 model_path = os.path.join(self.ckpt_dir, "Cnn14_16k_mAP%3D0.438.pth")
                 if not(os.path.exists(model_path)):
+                    if self.verbose:
+                        print("[Frechet Audio Distance] Downloading {}...".format(model_path))
                     torch.hub.download_url_to_file(
                         url='https://zenodo.org/record/3987831/files/Cnn14_16k_mAP%3D0.438.pth', 
                         dst=model_path
@@ -121,6 +128,8 @@ class FrechetAudioDistance:
             elif self.sample_rate == 32000:
                 model_path = os.path.join(self.ckpt_dir, "Cnn14_mAP%3D0.431.pth")
                 if not(os.path.exists(model_path)):
+                    if self.verbose:
+                        print("[Frechet Audio Distance] Downloading {}...".format(model_path))
                     torch.hub.download_url_to_file(
                         url='https://zenodo.org/record/3987831/files/Cnn14_mAP%3D0.431.pth', 
                         dst=model_path
