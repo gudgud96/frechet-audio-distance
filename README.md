@@ -33,7 +33,9 @@ fad_score = frechet.score("/path/to/background/set", "/path/to/eval/set", dtype=
 
 ```
 
-When computing the Frechet Audio Distance, you can choose to save the embeddings for future use. This capability not only ensures consistency across evaluations but can also significantly reduce computation time, especially if you're evaluating multiple times using the same dataset.
+When computing the Frechet Audio Distance, you can choose to save the embeddings for future use. 
+
+This capability not only ensures consistency across evaluations but can also significantly reduce computation time, especially if you're evaluating multiple times using the same dataset.
 
 ```python
 # Specify the paths to your saved embeddings
