@@ -1,6 +1,6 @@
 numpy==1.23.4
 torch
-scipy
+scipy==1.10.1
 tqdm
 soundfile
 resampy
