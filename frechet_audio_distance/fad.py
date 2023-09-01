@@ -81,7 +81,7 @@ class FrechetAudioDistance:
         """
         if model_name == "vggish":
             # S. Hershey et al., "CNN Architectures for Large-Scale Audio Classification", ICASSP 2017
-            self.model = torch.hub.load(repo_or_dir='harritaylor/torchvggish', model='vggish')
+            self.model = torch.hub.load(repo_or_dir='harritaylor/torchvggish', model='vggish', force_reload=True)
             if not use_pca:
                 self.model.postprocess = False
             if not use_activation:
@@ -282,6 +282,7 @@ class FrechetAudioDistance:
         """
         try:
             # Load or compute background embeddings
+            print("1")
             if background_embds_path is not None and os.path.exists(background_embds_path):
                 if self.verbose:
                     print(f"[Frechet Audio Distance] Loading embeddings from {background_embds_path}...")
@@ -294,6 +295,7 @@ class FrechetAudioDistance:
                     np.save(background_embds_path, embds_background)
 
             # Load or compute eval embeddings
+            print("2")
             if eval_embds_path is not None and os.path.exists(eval_embds_path):
                 if self.verbose:
                     print(f"[Frechet Audio Distance] Loading embeddings from {eval_embds_path}...")
@@ -306,6 +308,7 @@ class FrechetAudioDistance:
                     np.save(eval_embds_path, embds_eval)
 
             # Check if embeddings are empty
+            print("3")
             if len(embds_background) == 0:
                 print("[Frechet Audio Distance] background set dir is empty, exiting...")
                 return -1
@@ -314,6 +317,7 @@ class FrechetAudioDistance:
                 return -1
 
             # Compute statistics and FAD score
+            print("4")
             mu_background, sigma_background = self.calculate_embd_statistics(embds_background)
             mu_eval, sigma_eval = self.calculate_embd_statistics(embds_eval)
 
