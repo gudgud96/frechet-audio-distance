@@ -71,8 +71,9 @@ FAD scores comparison w.r.t. to original implementation in `google-research/frec
 
 ### To contribute
 
-- Run `python3 -m build` to build your version locally. The built wheel should be in `dist/`.
-- `pip install` your local wheel version, and run `pytest test/` to validate your changes.
+Contributions are welcomed! Kindly raise a PR and ensure that all CI checks are passed.
+
+NOTE: For now, the CI only checks for `vggish` as `PANN` takes a long time to download.
 
 ### References
 
