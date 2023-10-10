@@ -5,3 +5,4 @@ tqdm
 soundfile
 resampy
 torchlibrosa
+laion_clap
