@@ -5,4 +5,8 @@ tqdm
 soundfile
 resampy
 torchlibrosa
+torchvision
+
 laion_clap
+transformers<=4.30.2
+torchaudio

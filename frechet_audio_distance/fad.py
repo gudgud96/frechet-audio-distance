@@ -7,19 +7,17 @@ VGGish adapted from: https://github.com/harritaylor/torchvggish
 """
 import os
 import numpy as np
-import torch
-from torch import nn
-from scipy import linalg
-from tqdm import tqdm
-import soundfile as sf
 import resampy
-import wget
+import soundfile as sf
+import torch
 import laion_clap
-from multiprocessing.dummy import Pool as ThreadPool
-from .models.pann import Cnn14_8k, Cnn14_16k, Cnn14
-# from .models.laion_clap.hook import CLAP_Module
-# from .models.laion_clap.clap_module.factory import load_state_dict as clap_load_state_dict
 
+from multiprocessing.dummy import Pool as ThreadPool
+from scipy import linalg
+from torch import nn
+from tqdm import tqdm
+
+from .models.pann import Cnn14, Cnn14_8k, Cnn14_16k
 
 # SAMPLE_RATE = 16000
 
@@ -35,7 +33,7 @@ def load_audio_task(fname, sample_rate, dtype="float32"):
         wav_data = wav_data / 32768.0
     elif dtype == 'int32':
         wav_data = wav_data / float(2**31)
-    
+
     # Convert to mono
     if len(wav_data.shape) > 1:
         wav_data = np.mean(wav_data, axis=1)
@@ -48,19 +46,19 @@ def load_audio_task(fname, sample_rate, dtype="float32"):
 
 class FrechetAudioDistance:
     def __init__(
-        self, 
+        self,
         ckpt_dir=None,
         model_name="vggish",
-        submodel_name="630k-audioset", # only for CLAP
+        submodel_name="630k-audioset",  # only for CLAP
         sample_rate=16000,
-        use_pca=False, # only for VGGish
-        use_activation=False, # only for VGGish
-        verbose=False, 
+        use_pca=False,  # only for VGGish
+        use_activation=False,  # only for VGGish
+        verbose=False,
         audio_load_worker=8,
-        enable_fusion=False, # only for CLAP
-    ):  
+        enable_fusion=False,  # only for CLAP
+    ):
         """Initialize FAD
-        
+
         ckpt_dir: folder where the downloaded checkpoints are stored
         model_name: one between vggish, pann or clap
         submodel_name: only for clap models - determines which checkpoint to use. options: ["630k-audioset", "630k", "music_audioset", "music_speech", "music_speech_audioset"]
@@ -92,8 +90,7 @@ class FrechetAudioDistance:
             # by default `ckpt_dir` is `torch.hub.get_dir()`
             self.ckpt_dir = torch.hub.get_dir()
         self.__get_model(model_name=model_name, use_pca=use_pca, use_activation=use_activation)
-        
-    
+
     def __get_model(self, model_name="vggish", use_pca=False, use_activation=False):
         """
         Params:
@@ -117,45 +114,45 @@ class FrechetAudioDistance:
             if self.sample_rate == 8000:
                 download_name = "Cnn14_8k_mAP%3D0.416.pth"
                 self.model = Cnn14_8k(
-                    sample_rate=8000, 
-                    window_size=256, 
-                    hop_size=80, 
-                    mel_bins=64, 
-                    fmin=50, 
-                    fmax=4000, 
+                    sample_rate=8000,
+                    window_size=256,
+                    hop_size=80,
+                    mel_bins=64,
+                    fmin=50,
+                    fmax=4000,
                     classes_num=527
                 )
             elif self.sample_rate == 16000:
                 download_name = "Cnn14_16k_mAP%3D0.438.pth"
                 self.model = Cnn14_16k(
-                    sample_rate=16000, 
-                    window_size=512, 
-                    hop_size=160, 
-                    mel_bins=64, 
-                    fmin=50, 
-                    fmax=8000, 
+                    sample_rate=16000,
+                    window_size=512,
+                    hop_size=160,
+                    mel_bins=64,
+                    fmin=50,
+                    fmax=8000,
                     classes_num=527
                 )
             elif self.sample_rate == 32000:
                 download_name = "Cnn14_mAP%3D0.431.pth"
                 self.model = Cnn14(
-                    sample_rate=32000, 
-                    window_size=1024, 
-                    hop_size=320, 
-                    mel_bins=64, 
-                    fmin=50, 
-                    fmax=16000, 
+                    sample_rate=32000,
+                    window_size=1024,
+                    hop_size=320,
+                    mel_bins=64,
+                    fmin=50,
+                    fmax=16000,
                     classes_num=527
                 )
 
             model_path = os.path.join(self.ckpt_dir, download_name)
 
             # download checkpoint
-            if not(os.path.exists(model_path)):
+            if not (os.path.exists(model_path)):
                 if self.verbose:
                     print("[Frechet Audio Distance] Downloading {}...".format(model_path))
                 torch.hub.download_url_to_file(
-                    url=f"https://zenodo.org/record/3987831/files/{download_name}", 
+                    url=f"https://zenodo.org/record/3987831/files/{download_name}",
                     dst=model_path
                 )
 
@@ -183,28 +180,28 @@ class FrechetAudioDistance:
                 download_name = "music_speech_audioset_epoch_15_esc_89.98.pt"
 
             model_path = os.path.join(self.ckpt_dir, download_name)
-            
+
             # download checkpoint
-            if not(os.path.exists(model_path)):
+            if not (os.path.exists(model_path)):
                 if self.verbose:
                     print("[Frechet Audio Distance] Downloading {}...".format(model_path))
                 torch.hub.download_url_to_file(
-                    url=f"https://huggingface.co/lukewys/laion_clap/resolve/main/{download_name}", 
+                    url=f"https://huggingface.co/lukewys/laion_clap/resolve/main/{download_name}",
                     dst=model_path
                 )
-            
+
             # init model and load checkpoint
             if self.submodel_name in ["630k-audioset", "630k"]:
-                self.model = laion_clap.CLAP_Module(enable_fusion=self.enable_fusion, 
+                self.model = laion_clap.CLAP_Module(enable_fusion=self.enable_fusion,
                                                     device=self.device)
             elif self.submodel_name in ["music_audioset", "music_speech", "music_speech_audioset"]:
-                self.model = laion_clap.CLAP_Module(enable_fusion=self.enable_fusion, 
-                                                    amodel= 'HTSAT-base', 
+                self.model = laion_clap.CLAP_Module(enable_fusion=self.enable_fusion,
+                                                    amodel='HTSAT-base',
                                                     device=self.device)
             self.model.load_ckpt(model_path)
-            
+
         self.model.eval()
-    
+
     def get_embeddings(self, x, sr):
         """
         Get embeddings using VGGish model.
@@ -223,29 +220,32 @@ class FrechetAudioDistance:
                         out = self.model(audio, None)
                         embd = out['embedding'].data[0]
                 elif self.model_name == "clap":
-                    audio = np.expand_dims(audio, 0)
-                    embd = self.model.get_audio_embedding_from_data(audio, use_tensor=False)
+                    audio = torch.tensor(audio).float().unsqueeze(0)
+                    embd = self.model.get_audio_embedding_from_data(audio, use_tensor=True)
+                
                 if self.device == torch.device('cuda'):
                     embd = embd.cpu()
+                
                 if torch.is_tensor(embd):
                     embd = embd.detach().numpy()
+                
                 embd_lst.append(embd)
         except Exception as e:
             print("[Frechet Audio Distance] get_embeddings throw an exception: {}".format(str(e)))
-        
+
         return np.concatenate(embd_lst, axis=0)
-    
+
     def calculate_embd_statistics(self, embd_lst):
         if isinstance(embd_lst, list):
             embd_lst = np.array(embd_lst)
         mu = np.mean(embd_lst, axis=0)
         sigma = np.cov(embd_lst, rowvar=False)
         return mu, sigma
-    
+
     def calculate_frechet_distance(self, mu1, sigma1, mu2, sigma2, eps=1e-6):
         """
         Adapted from: https://github.com/mseitzer/pytorch-fid/blob/master/src/pytorch_fid/fid_score.py
-        
+
         Numpy implementation of the Frechet Distance.
         The Frechet distance between two multivariate Gaussians X_1 ~ N(mu_1, C_1)
         and X_2 ~ N(mu_2, C_2) is
@@ -281,7 +281,7 @@ class FrechetAudioDistance:
         covmean, _ = linalg.sqrtm(sigma1.dot(sigma2), disp=False)
         if not np.isfinite(covmean).all():
             msg = ('fid calculation produces singular product; '
-                'adding %s to diagonal of cov estimates') % eps
+                   'adding %s to diagonal of cov estimates') % eps
             print(msg)
             offset = np.eye(sigma1.shape[0]) * eps
             covmean = linalg.sqrtm((sigma1 + offset).dot(sigma2 + offset))
@@ -297,7 +297,7 @@ class FrechetAudioDistance:
 
         return (diff.dot(diff) + np.trace(sigma1)
                 + np.trace(sigma2) - 2 * tr_covmean)
-    
+
     def __load_audio_files(self, dir, dtype="float32"):
         task_results = []
 
@@ -311,24 +311,23 @@ class FrechetAudioDistance:
             print("[Frechet Audio Distance] Loading audio from {}...".format(dir))
         for fname in os.listdir(dir):
             res = pool.apply_async(
-                load_audio_task, 
-                args=(os.path.join(dir, fname), self.sample_rate, dtype), 
+                load_audio_task,
+                args=(os.path.join(dir, fname), self.sample_rate, dtype),
                 callback=update
             )
             task_results.append(res)
         pool.close()
-        pool.join()     
+        pool.join()
 
-        return [k.get() for k in task_results] 
+        return [k.get() for k in task_results]
 
-
-    def score(self, 
-            background_dir, 
-            eval_dir, 
-            background_embds_path=None, 
-            eval_embds_path=None,
-            dtype="float32"
-            ):
+    def score(self,
+              background_dir,
+              eval_dir,
+              background_embds_path=None,
+              eval_embds_path=None,
+              dtype="float32"
+              ):
         """
         Computes the Frechet Audio Distance (FAD) between two directories of audio files.
 
@@ -380,9 +379,9 @@ class FrechetAudioDistance:
             mu_eval, sigma_eval = self.calculate_embd_statistics(embds_eval)
 
             fad_score = self.calculate_frechet_distance(
-                mu_background, 
-                sigma_background, 
-                mu_eval, 
+                mu_background,
+                sigma_background,
+                mu_eval,
                 sigma_eval
             )
 
