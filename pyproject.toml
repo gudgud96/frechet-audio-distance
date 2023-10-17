@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "frechet_audio_distance"
-version = "0.1.2"
+version = "0.2.0"
 authors = [
   { name="Hao Hao Tan", email="helloharry66@gmail.com" },
 ]
@@ -18,13 +18,16 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  'numpy',
+  'numpy==1.23.4',
   'torch',
-  'scipy',
+  'scipy==1.10.1',
   'tqdm',
   'soundfile',
   'resampy',
-  'torchlibrosa'
+  'torchlibrosa',
+  'laion_clap',
+  'transformers<=4.30.2',
+  'torchaudio',
 ]
 
 [project.urls]

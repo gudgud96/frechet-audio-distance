@@ -4,7 +4,8 @@ A lightweight library of Frechet Audio Distance calculation.
 
 Currently, we support embedding from:
 - `VGGish` by [S. Hershey et al.](https://arxiv.org/abs/1812.08466)
-- `PANN` by [Kong et al.](https://arxiv.org/abs/1912.10211).
+- `PANN` by [Kong et al.](https://arxiv.org/abs/1912.10211)
+- `CLAP` by [Wu et al.](https://arxiv.org/abs/2211.06687)
 
 ### Installation
 
@@ -18,6 +19,7 @@ from frechet_audio_distance import FrechetAudioDistance
 # to use `vggish`
 frechet = FrechetAudioDistance(
     model_name="vggish",
+    sample_rate=16000,
     use_pca=False, 
     use_activation=False,
     verbose=False
@@ -25,13 +27,26 @@ frechet = FrechetAudioDistance(
 # to use `PANN`
 frechet = FrechetAudioDistance(
     model_name="pann",
+    sample_rate=16000,
     use_pca=False, 
     use_activation=False,
     verbose=False
 )
+# to use `CLAP`
+frechet = FrechetAudioDistance(
+    model_name="clap",
+    sample_rate=48000,
+    submodel_name="630k-audioset",  # for CLAP only
+    verbose=False,
+    enable_fusion=False,            # for CLAP only
+)
 fad_score = frechet.score("/path/to/background/set", "/path/to/eval/set", dtype="float32")
 
 ```
+
+You can also have a look at [this notebook](https://github.com/gudgud96/frechet-audio-distance/blob/main/test/test_all.ipynb) for a better understanding of how each model is used.
+
+### Save pre-computed embeddings
 
 When computing the Frechet Audio Distance, you can choose to save the embeddings for future use. 
 
