@@ -19,11 +19,8 @@ from tqdm import tqdm
 
 from .models.pann import Cnn14, Cnn14_8k, Cnn14_16k
 
-# SAMPLE_RATE = 16000
-
 
 def load_audio_task(fname, sample_rate, dtype="float32"):
-    # print("LOAD AUDIO TASK")
     if dtype not in ['float64', 'float32', 'int32', 'int16']:
         raise ValueError(f"dtype not supported: {dtype}")
 
