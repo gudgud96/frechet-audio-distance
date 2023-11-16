@@ -34,7 +34,8 @@ def load_audio_task(fname, sample_rate, dtype="float32"):
         wav_data = wav_data / float(2**31)
 
     # Convert to mono
-    if len(wav_data.shape) > 1:
+    assert channels in [1, 2], "channels must be 1 or 2"
+    if len(wav_data.shape) > channels:
         wav_data = np.mean(wav_data, axis=1)
 
     if sr != sample_rate:
@@ -50,6 +51,7 @@ class FrechetAudioDistance:
         model_name="vggish",
         submodel_name="630k-audioset",  # only for CLAP
         sample_rate=16000,
+        channels=1,
         use_pca=False,  # only for VGGish
         use_activation=False,  # only for VGGish
         verbose=False,
@@ -76,6 +78,8 @@ class FrechetAudioDistance:
             assert submodel_name in ["630k-audioset", "630k", "music_audioset", "music_speech", "music_speech_audioset"]
         elif model_name == "encodec":
             assert sample_rate in [24000, 48000], "sample_rate must be 24000 or 48000"
+            if sample_rate == 48000:
+                assert channels == 2, "channels must be 2 for 48khz encodec model"
         self.model_name = model_name
         self.submodel_name = submodel_name
         self.sample_rate = sample_rate
@@ -238,13 +242,36 @@ class FrechetAudioDistance:
                 elif self.model_name == "encodec":
                     # add two dimensions
                     audio = torch.tensor(audio).float().unsqueeze(0).unsqueeze(0)
-                    # log
+                    # if SAMPLE_RATE is 48000, we need to make audio stereo
+                    if self.model.sample_rate == 48000:
+                        if audio.shape[-1] != 2:
+                            print(
+                                "[Frechet Audio Distance] Audio is mono, converting to stereo for 48khz model..."
+                            )
+                            audio = torch.cat((audio, audio), dim=1)
+                        else:
+                            # transpose to (batch, channels, samples)
+                            audio = audio[:, 0].transpose(1, 2)
+
+                    if self.verbose:
+                        print(
+                            "[Frechet Audio Distance] Audio shape: {}".format(
+                                audio.shape
+                            )
+                        )
+
                     with torch.no_grad():
                         # encodec embedding (before quantization)
                         embd = self.model.encoder(audio)
                         embd = embd.squeeze(0)
-                
-                if self.device == torch.device('cuda'):
+
+                if self.verbose:
+                    print(
+                        "[Frechet Audio Distance] Embedding shape: {}".format(
+                            embd.shape
+                        )
+                    )
+                if self.device == torch.device("cuda"):
                     embd = embd.cpu()
                 
                 if torch.is_tensor(embd):
@@ -333,8 +360,8 @@ class FrechetAudioDistance:
         for fname in os.listdir(dir):
             res = pool.apply_async(
                 load_audio_task,
-                args=(os.path.join(dir, fname), self.sample_rate, dtype),
-                callback=update
+                args=(os.path.join(dir, fname), self.sample_rate, self.channels, dtype),
+                callback=update,
             )
             task_results.append(res)
         pool.close()
