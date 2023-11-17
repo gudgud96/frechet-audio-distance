@@ -22,7 +22,7 @@ from .models.pann import Cnn14, Cnn14_8k, Cnn14_16k
 from encodec import EncodecModel
 
 
-def load_audio_task(fname, sample_rate, dtype="float32"):
+def load_audio_task(fname, sample_rate, channels, dtype="float32"):
     if dtype not in ['float64', 'float32', 'int32', 'int16']:
         raise ValueError(f"dtype not supported: {dtype}")
 
@@ -83,6 +83,7 @@ class FrechetAudioDistance:
         self.model_name = model_name
         self.submodel_name = submodel_name
         self.sample_rate = sample_rate
+        self.channels = channels
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.verbose = verbose
         self.audio_load_worker = audio_load_worker
