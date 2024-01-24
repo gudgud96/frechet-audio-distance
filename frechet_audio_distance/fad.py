@@ -327,13 +327,13 @@ class FrechetAudioDistance:
         diff = mu1 - mu2
 
         # Product might be almost singular
-        covmean, _ = linalg.sqrtm(sigma1.dot(sigma2), disp=False)
+        covmean, _ = linalg.sqrtm(sigma1.dot(sigma2).astype(complex), disp=False)
         if not np.isfinite(covmean).all():
             msg = ('fid calculation produces singular product; '
                    'adding %s to diagonal of cov estimates') % eps
             print(msg)
             offset = np.eye(sigma1.shape[0]) * eps
-            covmean = linalg.sqrtm((sigma1 + offset).dot(sigma2 + offset))
+            covmean = linalg.sqrtm((sigma1 + offset).dot(sigma2 + offset).astype(complex))
 
         # Numerical error might give slight imaginary component
         if np.iscomplexobj(covmean):
