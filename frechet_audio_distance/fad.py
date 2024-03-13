@@ -84,7 +84,6 @@ class FrechetAudioDistance:
         self.submodel_name = submodel_name
         self.sample_rate = sample_rate
         self.channels = channels
-        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.verbose = verbose
         self.device = torch.device(
             'cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else torch.device('cpu')
