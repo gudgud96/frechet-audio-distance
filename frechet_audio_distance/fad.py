@@ -334,8 +334,8 @@ class FrechetAudioDistance:
         Parameters:
         - background_dir (str): Path to the directory containing background audio files.
         - eval_dir (str): Path to the directory containing evaluation audio files.
-        - background_embds_path (str, optional): Path to save/load background audio embeddings. If None, embeddings won't be saved.
-        - eval_embds_path (str, optional): Path to save/load evaluation audio embeddings. If None, embeddings won't be saved.
+        - background_embds_path (str, optional): Path to save/load background audio embeddings (e.g., /folder/bkg_embs.npy). If None, embeddings won't be saved.
+        - eval_embds_path (str, optional): Path to save/load evaluation audio embeddings (e.g., /folder/test_embs.npy). If None, embeddings won't be saved.
         - dtype (str, optional): Data type for loading audio. Default is "float32".
 
         Returns:
