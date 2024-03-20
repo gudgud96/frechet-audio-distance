@@ -7,8 +7,6 @@ VGGish adapted from: https://github.com/harritaylor/torchvggish
 """
 import os
 import numpy as np
-import resampy
-import soundfile as sf
 import torch
 import laion_clap
 
@@ -18,30 +16,6 @@ from torch import nn
 from tqdm import tqdm
 
 from .models.pann import Cnn14, Cnn14_8k, Cnn14_16k
-
-# SAMPLE_RATE = 16000
-
-
-def load_audio_task(fname, sample_rate, dtype="float32"):
-    # print("LOAD AUDIO TASK")
-    if dtype not in ['float64', 'float32', 'int32', 'int16']:
-        raise ValueError(f"dtype not supported: {dtype}")
-
-    wav_data, sr = sf.read(fname, dtype=dtype)
-    # For integer type PCM input, convert to [-1.0, +1.0]
-    if dtype == 'int16':
-        wav_data = wav_data / 32768.0
-    elif dtype == 'int32':
-        wav_data = wav_data / float(2**31)
-
-    # Convert to mono
-    if len(wav_data.shape) > 1:
-        wav_data = np.mean(wav_data, axis=1)
-
-    if sr != sample_rate:
-        wav_data = resampy.resample(wav_data, sr, sample_rate)
-
-    return wav_data
 
 
 class FrechetAudioDistance:
@@ -222,13 +196,13 @@ class FrechetAudioDistance:
                 elif self.model_name == "clap":
                     audio = torch.tensor(audio).float().unsqueeze(0)
                     embd = self.model.get_audio_embedding_from_data(audio, use_tensor=True)
-                
+
                 if self.device == torch.device('cuda'):
                     embd = embd.cpu()
-                
+
                 if torch.is_tensor(embd):
                     embd = embd.detach().numpy()
-                
+
                 embd_lst.append(embd)
         except Exception as e:
             print("[Frechet Audio Distance] get_embeddings throw an exception: {}".format(str(e)))
