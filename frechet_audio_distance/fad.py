@@ -16,6 +16,7 @@ from torch import nn
 from tqdm import tqdm
 
 from .models.pann import Cnn14, Cnn14_8k, Cnn14_16k
+from .utils import load_audio_task
 
 
 class FrechetAudioDistance:
@@ -31,15 +32,17 @@ class FrechetAudioDistance:
         audio_load_worker=8,
         enable_fusion=False,  # only for CLAP
     ):
-        """Initialize FAD
+        """
+        Initialize FAD
 
-        ckpt_dir: folder where the downloaded checkpoints are stored
-        model_name: one between vggish, pann or clap
-        submodel_name: only for clap models - determines which checkpoint to use. options: ["630k-audioset", "630k", "music_audioset", "music_speech", "music_speech_audioset"]
-        sample_rate: one between [8000, 16000, 32000, 48000]. depending on the model set the sample rate to use
-        use_pca: whether to apply PCA to the vggish embeddings
-        use_activation: whether to use the output activation in vggish
-        enable_fusion: whether to use fusion for clap models (valid depending on the specific submodel used)
+        -- ckpt_dir: folder where the downloaded checkpoints are stored
+        -- model_name: one between vggish, pann or clap
+        -- submodel_name: only for clap models - determines which checkpoint to use. 
+                          options: ["630k-audioset", "630k", "music_audioset", "music_speech", "music_speech_audioset"]
+        -- sample_rate: one between [8000, 16000, 32000, 48000]. depending on the model set the sample rate to use
+        -- use_pca: whether to apply PCA to the vggish embeddings
+        -- use_activation: whether to use the output activation in vggish
+        -- enable_fusion: whether to use fusion for clap models (valid depending on the specific submodel used)
         """
         assert model_name in ["vggish", "pann", "clap"], "model_name must be either 'vggish', 'pann' or 'clap"
         if model_name == "vggish":
@@ -67,10 +70,12 @@ class FrechetAudioDistance:
 
     def __get_model(self, model_name="vggish", use_pca=False, use_activation=False):
         """
+        Get ckpt and set model for the specified model_name
+
         Params:
-        -- x   : Either 
-            (i) a string which is the directory of a set of audio files, or
-            (ii) a np.ndarray of shape (num_samples, sample_length)
+        -- model_name: one between vggish, pann or clap
+        -- use_pca: whether to apply PCA to the vggish embeddings
+        -- use_activation: whether to use the output activation in vggish
         """
         # vggish
         if model_name == "vggish":
@@ -178,10 +183,10 @@ class FrechetAudioDistance:
 
     def get_embeddings(self, x, sr):
         """
-        Get embeddings using VGGish model.
+        Get embeddings.
         Params:
         -- x    : a list of np.ndarray audio samples
-        -- sr   : Sampling rate, if x is a list of audio samples. Default value is 16000.
+        -- sr   : sampling rate.
         """
         embd_lst = []
         try:
