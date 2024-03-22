@@ -4,7 +4,6 @@ import soundfile as sf
 
 
 def load_audio_task(fname, sample_rate, dtype="float32"):
-    # print("LOAD AUDIO TASK")
     if dtype not in ['float64', 'float32', 'int32', 'int16']:
         raise ValueError(f"dtype not supported: {dtype}")
 
