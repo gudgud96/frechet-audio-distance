@@ -3,7 +3,7 @@ import numpy as np
 import soundfile as sf
 
 
-def load_audio_task(fname, sample_rate, dtype="float32"):
+def load_audio_task(fname, sample_rate, channels, dtype="float32"):
     if dtype not in ['float64', 'float32', 'int32', 'int16']:
         raise ValueError(f"dtype not supported: {dtype}")
 
@@ -15,7 +15,8 @@ def load_audio_task(fname, sample_rate, dtype="float32"):
         wav_data = wav_data / float(2**31)
 
     # Convert to mono
-    if len(wav_data.shape) > 1:
+    assert channels in [1, 2], "channels must be 1 or 2"
+    if len(wav_data.shape) > channels:
         wav_data = np.mean(wav_data, axis=1)
 
     if sr != sample_rate:

@@ -176,9 +176,10 @@ class CLAPScore:
         if self.verbose:
             print("[CLAP score] Loading audio from {}...".format(dir))
         for fname in os.listdir(dir):
+            # assume CLAP input audio to always be mono channel
             res = pool.apply_async(
                 load_audio_task,
-                args=(os.path.join(dir, fname), self.sample_rate, dtype),
+                args=(os.path.join(dir, fname), self.sample_rate, 1, dtype),
                 callback=update
             )
             task_results.append(res)
