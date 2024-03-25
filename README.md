@@ -1,17 +1,24 @@
 ## Frechet Audio Distance in PyTorch
 
-A lightweight library of Frechet Audio Distance calculation.
+A lightweight library of Frechet Audio Distance (FAD) calculation.
 
-Currently, we support embedding from:
-- `VGGish` by [S. Hershey et al.](https://arxiv.org/abs/1812.08466)
-- `PANN` by [Kong et al.](https://arxiv.org/abs/1912.10211)
-- `CLAP` by [Wu et al.](https://arxiv.org/abs/2211.06687)
+Currently, we support:
+- FAD score, with embeddings from:
+    - `VGGish` by [S. Hershey et al.](https://arxiv.org/abs/1812.08466)
+    
+    - `PANN` by [Kong et al.](https://arxiv.org/abs/1912.10211)
+    - `CLAP` by [Wu et al.](https://arxiv.org/abs/2211.06687)
+    - `EnCodec` by [Defossez et al.](https://arxiv.org/pdf/2210.13438.pdf)
+
+- CLAP score, for text and audio matching
 
 ### Installation
 
 `pip install frechet_audio_distance`
 
-### Demo
+### Example
+
+#### For FAD:
 
 ```python
 from frechet_audio_distance import FrechetAudioDistance
@@ -40,11 +47,42 @@ frechet = FrechetAudioDistance(
     verbose=False,
     enable_fusion=False,            # for CLAP only
 )
-fad_score = frechet.score("/path/to/background/set", "/path/to/eval/set", dtype="float32")
+# to use `EnCodec`
+frechet = FrechetAudioDistance(
+    model_name="encodec",
+    sample_rate=48000,
+    channels=2,
+    verbose=False,
+)
 
+fad_score = frechet.score(
+    "/path/to/background/set", 
+    "/path/to/eval/set", 
+    dtype="float32"
+)
 ```
 
 You can also have a look at [this notebook](https://github.com/gudgud96/frechet-audio-distance/blob/main/test/test_all.ipynb) for a better understanding of how each model is used.
+
+#### For CLAP score:
+
+```python
+from frechet_audio_distance import CLAPScore
+
+clap = CLAPScore(
+    submodel_name="630k-audioset",
+    verbose=True,
+    enable_fusion=False,
+)
+
+clap_score = clap.score(
+    text_path="./text1/text.csv",
+    audio_dir="./audio1",
+    text_column="caption",
+)
+```
+
+For more info, kindly refer to [this notebook](https://github.com/gudgud96/frechet-audio-distance/blob/main/test/test_clap_score.ipynb).
 
 ### Save pre-computed embeddings
 

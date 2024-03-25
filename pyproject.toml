@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "frechet_audio_distance"
-version = "0.2.0"
+version = "0.3.0"
 authors = [
   { name="Hao Hao Tan", email="helloharry66@gmail.com" },
 ]
@@ -33,3 +33,6 @@ dependencies = [
 
 [project.urls]
 "Homepage" = "https://github.com/gudgud96/frechet-audio-distance"
+
+[tool.setuptools]
+py-modules = []
