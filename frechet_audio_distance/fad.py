@@ -245,12 +245,6 @@ class FrechetAudioDistance:
                     audio = torch.tensor(audio).float().unsqueeze(0)
                     embd = self.model.get_audio_embedding_from_data(audio, use_tensor=True)
 
-                if self.device == torch.device('cuda'):
-                    embd = embd.cpu()
-
-                if torch.is_tensor(embd):
-                    embd = embd.detach().numpy()
-
                 elif self.model_name == "encodec":
                     # add two dimensions
                     audio = torch.tensor(
@@ -285,6 +279,7 @@ class FrechetAudioDistance:
                             embd.shape
                         )
                     )
+                
                 if embd.device != torch.device("cpu"):
                     embd = embd.cpu()
                 
