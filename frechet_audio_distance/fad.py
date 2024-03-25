@@ -18,30 +18,9 @@ from torch import nn
 from tqdm import tqdm
 
 from .models.pann import Cnn14, Cnn14_8k, Cnn14_16k
+from .utils import load_audio_task
 
 from encodec import EncodecModel
-
-
-def load_audio_task(fname, sample_rate, channels, dtype="float32"):
-    if dtype not in ['float64', 'float32', 'int32', 'int16']:
-        raise ValueError(f"dtype not supported: {dtype}")
-
-    wav_data, sr = sf.read(fname, dtype=dtype)
-    # For integer type PCM input, convert to [-1.0, +1.0]
-    if dtype == 'int16':
-        wav_data = wav_data / 32768.0
-    elif dtype == 'int32':
-        wav_data = wav_data / float(2**31)
-
-    # Convert to mono
-    assert channels in [1, 2], "channels must be 1 or 2"
-    if len(wav_data.shape) > channels:
-        wav_data = np.mean(wav_data, axis=1)
-
-    if sr != sample_rate:
-        wav_data = resampy.resample(wav_data, sr, sample_rate)
-
-    return wav_data
 
 
 class FrechetAudioDistance:
@@ -58,17 +37,20 @@ class FrechetAudioDistance:
         audio_load_worker=8,
         enable_fusion=False,  # only for CLAP
     ):
-        """Initialize FAD
-
-        ckpt_dir: folder where the downloaded checkpoints are stored
-        model_name: one between vggish, pann, clap or encodec
-        submodel_name: only for clap models - determines which checkpoint to use. options: ["630k-audioset", "630k", "music_audioset", "music_speech", "music_speech_audioset"]
-        sample_rate: one between [8000, 16000, 32000, 48000]. depending on the model set the sample rate to use
-        use_pca: whether to apply PCA to the vggish embeddings
-        use_activation: whether to use the output activation in vggish
-        enable_fusion: whether to use fusion for clap models (valid depending on the specific submodel used)
         """
-        assert model_name in ["vggish", "pann", "clap", "encodec"], "model_name must be either 'vggish', 'pann', 'clap', or 'encodec'"
+        Initialize FAD
+
+        -- ckpt_dir: folder where the downloaded checkpoints are stored
+        -- model_name: one between vggish, pann, clap or encodec
+        -- submodel_name: only for clap models - determines which checkpoint to use. 
+                          options: ["630k-audioset", "630k", "music_audioset", "music_speech", "music_speech_audioset"]
+        -- sample_rate: one between [8000, 16000, 32000, 48000]. depending on the model set the sample rate to use
+        -- channels: number of channels in an audio track
+        -- use_pca: whether to apply PCA to the vggish embeddings
+        -- use_activation: whether to use the output activation in vggish
+        -- enable_fusion: whether to use fusion for clap models (valid depending on the specific submodel used)
+        """
+        assert model_name in ["vggish", "pann", "clap", "encodec"], "model_name must be either 'vggish', 'pann', 'clap' or 'encodec'"
         if model_name == "vggish":
             assert sample_rate == 16000, "sample_rate must be 16000"
         elif model_name == "pann":
@@ -108,10 +90,12 @@ class FrechetAudioDistance:
 
     def __get_model(self, model_name="vggish", use_pca=False, use_activation=False):
         """
+        Get ckpt and set model for the specified model_name
+
         Params:
-        -- x   : Either 
-            (i) a string which is the directory of a set of audio files, or
-            (ii) a np.ndarray of shape (num_samples, sample_length)
+        -- model_name: one between vggish, pann or clap
+        -- use_pca: whether to apply PCA to the vggish embeddings
+        -- use_activation: whether to use the output activation in vggish
         """
         # vggish
         if model_name == "vggish":
@@ -205,6 +189,15 @@ class FrechetAudioDistance:
                     url=f"https://huggingface.co/lukewys/laion_clap/resolve/main/{download_name}",
                     dst=model_path
                 )
+            # init model and load checkpoint
+            if self.submodel_name in ["630k-audioset", "630k"]:
+                self.model = laion_clap.CLAP_Module(enable_fusion=self.enable_fusion,
+                                                    device=self.device)
+            elif self.submodel_name in ["music_audioset", "music_speech", "music_speech_audioset"]:
+                self.model = laion_clap.CLAP_Module(enable_fusion=self.enable_fusion,
+                                                    amodel='HTSAT-base',
+                                                    device=self.device)
+            self.model.load_ckpt(model_path)
 
             # init model and load checkpoint
             if self.submodel_name in ["630k-audioset", "630k"]:
@@ -236,7 +229,7 @@ class FrechetAudioDistance:
         Get embeddings using VGGish, PANN, CLAP or EnCodec models.
         Params:
         -- x    : a list of np.ndarray audio samples
-        -- sr   : Sampling rate, if x is a list of audio samples. Default value is 16000.
+        -- sr   : sampling rate.
         """
         embd_lst = []
         try:
@@ -251,6 +244,7 @@ class FrechetAudioDistance:
                 elif self.model_name == "clap":
                     audio = torch.tensor(audio).float().unsqueeze(0)
                     embd = self.model.get_audio_embedding_from_data(audio, use_tensor=True)
+
                 elif self.model_name == "encodec":
                     # add two dimensions
                     audio = torch.tensor(
@@ -285,6 +279,7 @@ class FrechetAudioDistance:
                             embd.shape
                         )
                     )
+                
                 if embd.device != torch.device("cpu"):
                     embd = embd.cpu()
                 
@@ -396,8 +391,8 @@ class FrechetAudioDistance:
         Parameters:
         - background_dir (str): Path to the directory containing background audio files.
         - eval_dir (str): Path to the directory containing evaluation audio files.
-        - background_embds_path (str, optional): Path to save/load background audio embeddings. If None, embeddings won't be saved.
-        - eval_embds_path (str, optional): Path to save/load evaluation audio embeddings. If None, embeddings won't be saved.
+        - background_embds_path (str, optional): Path to save/load background audio embeddings (e.g., /folder/bkg_embs.npy). If None, embeddings won't be saved.
+        - eval_embds_path (str, optional): Path to save/load evaluation audio embeddings (e.g., /folder/test_embs.npy). If None, embeddings won't be saved.
         - dtype (str, optional): Data type for loading audio. Default is "float32".
 
         Returns:
