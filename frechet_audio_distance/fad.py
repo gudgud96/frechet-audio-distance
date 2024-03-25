@@ -7,6 +7,8 @@ VGGish adapted from: https://github.com/harritaylor/torchvggish
 """
 import os
 import numpy as np
+import resampy
+import soundfile as sf
 import torch
 import laion_clap
 
@@ -18,6 +20,8 @@ from tqdm import tqdm
 from .models.pann import Cnn14, Cnn14_8k, Cnn14_16k
 from .utils import load_audio_task
 
+from encodec import EncodecModel
+
 
 class FrechetAudioDistance:
     def __init__(
@@ -26,6 +30,7 @@ class FrechetAudioDistance:
         model_name="vggish",
         submodel_name="630k-audioset",  # only for CLAP
         sample_rate=16000,
+        channels=1,
         use_pca=False,  # only for VGGish
         use_activation=False,  # only for VGGish
         verbose=False,
@@ -36,15 +41,16 @@ class FrechetAudioDistance:
         Initialize FAD
 
         -- ckpt_dir: folder where the downloaded checkpoints are stored
-        -- model_name: one between vggish, pann or clap
+        -- model_name: one between vggish, pann, clap or encodec
         -- submodel_name: only for clap models - determines which checkpoint to use. 
                           options: ["630k-audioset", "630k", "music_audioset", "music_speech", "music_speech_audioset"]
         -- sample_rate: one between [8000, 16000, 32000, 48000]. depending on the model set the sample rate to use
+        -- channels: number of channels in an audio track
         -- use_pca: whether to apply PCA to the vggish embeddings
         -- use_activation: whether to use the output activation in vggish
         -- enable_fusion: whether to use fusion for clap models (valid depending on the specific submodel used)
         """
-        assert model_name in ["vggish", "pann", "clap"], "model_name must be either 'vggish', 'pann' or 'clap"
+        assert model_name in ["vggish", "pann", "clap", "encodec"], "model_name must be either 'vggish', 'pann', 'clap' or 'encodec'"
         if model_name == "vggish":
             assert sample_rate == 16000, "sample_rate must be 16000"
         elif model_name == "pann":
@@ -52,11 +58,25 @@ class FrechetAudioDistance:
         elif model_name == "clap":
             assert sample_rate == 48000, "sample_rate must be 48000"
             assert submodel_name in ["630k-audioset", "630k", "music_audioset", "music_speech", "music_speech_audioset"]
+        elif model_name == "encodec":
+            assert sample_rate in [24000, 48000], "sample_rate must be 24000 or 48000"
+            if sample_rate == 48000:
+                assert channels == 2, "channels must be 2 for 48khz encodec model"
         self.model_name = model_name
         self.submodel_name = submodel_name
         self.sample_rate = sample_rate
-        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        self.channels = channels
         self.verbose = verbose
+        self.device = torch.device(
+            'cuda') if torch.cuda.is_available() else torch.device('mps') if torch.backends.mps.is_available() else torch.device('cpu')
+        if self.device == torch.device('mps') and self.model_name == "clap":
+            if self.verbose:
+                print("[Frechet Audio Distance] CLAP does not support MPS device yet, because:")
+                print("[Frechet Audio Distance] The operator 'aten::upsample_bicubic2d.out' is not currently implemented for the MPS device.")
+                print("[Frechet Audio Distance] Using CPU device instead.")
+            self.device = torch.device('cpu')
+        if self.verbose:
+            print("[Frechet Audio Distance] Using device: {}".format(self.device))
         self.audio_load_worker = audio_load_worker
         self.enable_fusion = enable_fusion
         if ckpt_dir is not None:
@@ -85,6 +105,7 @@ class FrechetAudioDistance:
                 self.model.postprocess = False
             if not use_activation:
                 self.model.embeddings = nn.Sequential(*list(self.model.embeddings.children())[:-1])
+            self.model.device = self.device
         # pann
         elif model_name == "pann":
             # Kong et al., "PANNs: Large-Scale Pretrained Audio Neural Networks for Audio Pattern Recognition", IEEE/ACM Transactions on Audio, Speech, and Language Processing 28 (2020)
@@ -168,6 +189,15 @@ class FrechetAudioDistance:
                     url=f"https://huggingface.co/lukewys/laion_clap/resolve/main/{download_name}",
                     dst=model_path
                 )
+            # init model and load checkpoint
+            if self.submodel_name in ["630k-audioset", "630k"]:
+                self.model = laion_clap.CLAP_Module(enable_fusion=self.enable_fusion,
+                                                    device=self.device)
+            elif self.submodel_name in ["music_audioset", "music_speech", "music_speech_audioset"]:
+                self.model = laion_clap.CLAP_Module(enable_fusion=self.enable_fusion,
+                                                    amodel='HTSAT-base',
+                                                    device=self.device)
+            self.model.load_ckpt(model_path)
 
             # init model and load checkpoint
             if self.submodel_name in ["630k-audioset", "630k"]:
@@ -179,11 +209,24 @@ class FrechetAudioDistance:
                                                     device=self.device)
             self.model.load_ckpt(model_path)
 
+        # encodec
+        elif model_name == "encodec":
+            # choose the right model based on sample_rate
+            # weights are loaded from the encodec repo: https://github.com/facebookresearch/encodec/
+            if self.sample_rate == 24000:
+                self.model = EncodecModel.encodec_model_24khz()
+            elif self.sample_rate == 48000:
+                self.model = EncodecModel.encodec_model_48khz()
+            # 24kbps is the max bandwidth supported by both versions
+            # these models use 32 residual quantizers
+            self.model.set_target_bandwidth(24.0)
+
+        self.model.to(self.device)
         self.model.eval()
 
     def get_embeddings(self, x, sr):
         """
-        Get embeddings.
+        Get embeddings using VGGish, PANN, CLAP or EnCodec models.
         Params:
         -- x    : a list of np.ndarray audio samples
         -- sr   : sampling rate.
@@ -195,7 +238,7 @@ class FrechetAudioDistance:
                     embd = self.model.forward(audio, sr)
                 elif self.model_name == "pann":
                     with torch.no_grad():
-                        audio = torch.tensor(audio).float().unsqueeze(0)
+                        audio = torch.tensor(audio).float().unsqueeze(0).to(self.device)
                         out = self.model(audio, None)
                         embd = out['embedding'].data[0]
                 elif self.model_name == "clap":
@@ -208,6 +251,46 @@ class FrechetAudioDistance:
                 if torch.is_tensor(embd):
                     embd = embd.detach().numpy()
 
+                elif self.model_name == "encodec":
+                    # add two dimensions
+                    audio = torch.tensor(
+                        audio).float().unsqueeze(0).unsqueeze(0).to(self.device)
+                    # if SAMPLE_RATE is 48000, we need to make audio stereo
+                    if self.model.sample_rate == 48000:
+                        if audio.shape[-1] != 2:
+                            if self.verbose:
+                                print(
+                                    "[Frechet Audio Distance] Audio is mono, converting to stereo for 48khz model..."
+                                )
+                            audio = torch.cat((audio, audio), dim=1)
+                        else:
+                            # transpose to (batch, channels, samples)
+                            audio = audio[:, 0].transpose(1, 2)
+
+                    if self.verbose:
+                        print(
+                            "[Frechet Audio Distance] Audio shape: {}".format(
+                                audio.shape
+                            )
+                        )
+
+                    with torch.no_grad():
+                        # encodec embedding (before quantization)
+                        embd = self.model.encoder(audio)
+                        embd = embd.squeeze(0)
+
+                if self.verbose:
+                    print(
+                        "[Frechet Audio Distance] Embedding shape: {}".format(
+                            embd.shape
+                        )
+                    )
+                if embd.device != torch.device("cpu"):
+                    embd = embd.cpu()
+                
+                if torch.is_tensor(embd):
+                    embd = embd.detach().numpy()
+                
                 embd_lst.append(embd)
         except Exception as e:
             print("[Frechet Audio Distance] get_embeddings throw an exception: {}".format(str(e)))
@@ -257,13 +340,13 @@ class FrechetAudioDistance:
         diff = mu1 - mu2
 
         # Product might be almost singular
-        covmean, _ = linalg.sqrtm(sigma1.dot(sigma2), disp=False)
+        covmean, _ = linalg.sqrtm(sigma1.dot(sigma2).astype(complex), disp=False)
         if not np.isfinite(covmean).all():
             msg = ('fid calculation produces singular product; '
                    'adding %s to diagonal of cov estimates') % eps
             print(msg)
             offset = np.eye(sigma1.shape[0]) * eps
-            covmean = linalg.sqrtm((sigma1 + offset).dot(sigma2 + offset))
+            covmean = linalg.sqrtm((sigma1 + offset).dot(sigma2 + offset).astype(complex))
 
         # Numerical error might give slight imaginary component
         if np.iscomplexobj(covmean):
@@ -291,8 +374,8 @@ class FrechetAudioDistance:
         for fname in os.listdir(dir):
             res = pool.apply_async(
                 load_audio_task,
-                args=(os.path.join(dir, fname), self.sample_rate, dtype),
-                callback=update
+                args=(os.path.join(dir, fname), self.sample_rate, self.channels, dtype),
+                callback=update,
             )
             task_results.append(res)
         pool.close()

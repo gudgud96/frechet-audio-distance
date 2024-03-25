@@ -1,6 +1,6 @@
-numpy==1.23.4
+numpy
 torch
-scipy==1.10.1
+scipy
 tqdm
 soundfile
 resampy
@@ -10,3 +10,4 @@ torchvision
 laion_clap
 transformers<=4.30.2
 torchaudio
+encodec
