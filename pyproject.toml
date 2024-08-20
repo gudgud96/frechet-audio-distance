@@ -35,4 +35,4 @@ dependencies = [
 "Homepage" = "https://github.com/gudgud96/frechet-audio-distance"
 
 [tool.setuptools]
-packages = ["frechet_audio_distance"]
+packages = ["frechet_audio_distance", "frechet_audio_distance.models"]
