@@ -18,15 +18,15 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  'numpy==1.23.4',
+  'numpy>=1.23.4',
   'torch',
-  'scipy==1.10.1',
+  'scipy>=1.10.1',
   'tqdm',
   'soundfile',
   'resampy',
   'torchlibrosa',
   'laion_clap',
-  'transformers<=4.30.2',
+  'transformers>=4.30.2',
   'torchaudio',
   'encodec',
 ]
@@ -35,4 +35,4 @@ dependencies = [
 "Homepage" = "https://github.com/gudgud96/frechet-audio-distance"
 
 [tool.setuptools]
-packages = ["frechet_audio_distance"]
+packages = ["frechet_audio_distance", "frechet_audio_distance.models"]
