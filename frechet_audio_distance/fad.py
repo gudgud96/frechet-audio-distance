@@ -240,7 +240,10 @@ class FrechetAudioDistance:
                     with torch.no_grad():
                         audio = torch.tensor(audio).float().unsqueeze(0).to(self.device)
                         out = self.model(audio, None)
-                        embd = out['embedding'].data[0]
+                        # Fix for PANN dimension mismatch issue: 
+                        # out['embedding'].data[0] removes batch dimension, making it 1D
+                        # We need to keep it 2D for proper multivariate gaussian calculation in FAD
+                        embd = out['embedding'].data[0].unsqueeze(0)
                 elif self.model_name == "clap":
                     audio = torch.tensor(audio).float().unsqueeze(0)
                     embd = self.model.get_audio_embedding_from_data(audio, use_tensor=True)
