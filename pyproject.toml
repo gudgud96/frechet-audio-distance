@@ -17,7 +17,10 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  'numpy<2.0',
+  # numpy>=2.0 is required for Python 3.13+, while numpy<2.0 for earlier versions
+  # to maintain compatibility with existing dependencies and avoid conflicts
+  "numpy>=2.0.0; python_version >= '3.13'",
+  "numpy<2.0.0; python_version < '3.13'",
   'torch',
   'scipy',
   'tqdm',
