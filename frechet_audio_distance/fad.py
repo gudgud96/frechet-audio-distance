@@ -286,7 +286,12 @@ class FrechetAudioDistance:
                 if torch.is_tensor(embd):
                     embd = embd.detach().numpy()
                 
-                embd_lst.append(embd)
+                # For Encodec, transpose to get (n, d) instead of (d, n)
+                # This ensures multivariate-Gaussians are modeled over latent dimension
+                if self.model_name == "encodec":
+                    embd_lst.append(embd.T)
+                else:
+                    embd_lst.append(embd)
         except Exception as e:
             print("[Frechet Audio Distance] get_embeddings throw an exception: {}".format(str(e)))
 
